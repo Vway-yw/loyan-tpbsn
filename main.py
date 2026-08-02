@@ -10,6 +10,7 @@ from typing import Dict, List, Optional
 
 from loyan.core.decorators import on_command, plugin_handler, PluginContext
 from graci import get_logger
+from loyan.plugins.core.reading import get_reading, set_reading
 
 logger = get_logger("逃跑吧少年")
 
@@ -28,7 +29,7 @@ PAGE_SIZE = 500
 
 _cache: Dict[str, tuple] = {}
 _detail_cache: Dict[str, tuple] = {}
-_reading: Dict[str, dict] = {}  # user_id -> 当前阅读上下文
+
 
 TOPICS = {
     "hot": ("🔥 逃跑吧少年热点", "逃跑吧少年"),
@@ -172,7 +173,7 @@ async def _show_list(ctx: PluginContext, topic: str, extra: str = ""):
         await ctx.reply("😢 暂时没有获取到内容，请稍后再试")
         return
     uid = str(getattr(ctx, "sender_id", "") or "")
-    _reading[uid] = {"topic": topic, "extra": extra, "items": items, "page": 1}
+    set_reading(uid, {"topic": topic, "extra": extra, "items": items, "page": 1})
     lines = [title, "━━━━━━━━━━━━"]
     for i, it in enumerate(items, 1):
         t = it['title'] if len(it['title']) <= 30 else it['title'][:30] + '…'
@@ -186,7 +187,7 @@ async def _show_list(ctx: PluginContext, topic: str, extra: str = ""):
 async def _show_detail(ctx: PluginContext, idx: int, page: int):
     """显示正文某页"""
     uid = str(getattr(ctx, "sender_id", "") or "")
-    ctx_info = _reading.get(uid)
+    ctx_info = get_reading(uid)
     if not ctx_info:
         await ctx.reply("请先发送热点/攻略命令获取列表，再回复序号")
         return
@@ -204,6 +205,7 @@ async def _show_detail(ctx: PluginContext, idx: int, page: int):
     ctx_info["idx"] = idx
     ctx_info["page"] = page
     ctx_info["total"] = total
+    set_reading(uid, ctx_info)
     start = (page - 1) * PAGE_SIZE
     lines = [f"📄 {it['title']}", "━━━━━━━━━━━━"]
     lines.append(text[start:start + PAGE_SIZE])
@@ -218,7 +220,7 @@ async def _show_detail(ctx: PluginContext, idx: int, page: int):
 async def handle_next(ctx: PluginContext):
     """翻到下一页"""
     uid = str(getattr(ctx, "sender_id", "") or "")
-    c = _reading.get(uid)
+    c = get_reading(uid)
     if not c or not c.get("idx"):
         await ctx.reply("请先回复序号开始阅读")
         return
@@ -230,7 +232,7 @@ async def handle_next(ctx: PluginContext):
 async def handle_prev(ctx: PluginContext):
     """翻到上一页"""
     uid = str(getattr(ctx, "sender_id", "") or "")
-    c = _reading.get(uid)
+    c = get_reading(uid)
     if not c or not c.get("idx"):
         await ctx.reply("请先回复序号开始阅读")
         return
@@ -242,7 +244,7 @@ async def handle_prev(ctx: PluginContext):
 async def handle_last(ctx: PluginContext):
     """翻到最后一页"""
     uid = str(getattr(ctx, "sender_id", "") or "")
-    c = _reading.get(uid)
+    c = get_reading(uid)
     if not c or not c.get("idx"):
         await ctx.reply("请先回复序号开始阅读")
         return
@@ -259,7 +261,7 @@ async def handle_jump(ctx: PluginContext):
         await ctx.reply("用法：/第N页，如 /第3页")
         return
     uid = str(getattr(ctx, "sender_id", "") or "")
-    c = _reading.get(uid)
+    c = get_reading(uid)
     if not c or not c.get("idx"):
         await ctx.reply("请先回复序号开始阅读")
         return
@@ -276,13 +278,13 @@ async def _handle_index_cmd(ctx: PluginContext, topic: str, extra: str = ""):
         title, query = TOPICS[topic]
         if extra:
             query += " " + extra
-        items = _reading.get(uid, {}).get("items") if _reading.get(uid, {}).get("topic") == topic and _reading.get(uid, {}).get("extra") == extra else None
+        items = ((get_reading(uid) or {}).get("items") if (get_reading(uid) or {}).get("topic") == topic and (get_reading(uid) or {}).get("extra") == extra else None)
         if not items:
             items = await _get_list(query)
             if not items:
                 await ctx.reply("😢 暂时没有获取到内容，请稍后再试")
                 return
-            _reading[uid] = {"topic": topic, "extra": extra, "items": items, "page": 1}
+            set_reading(uid, {"topic": topic, "extra": extra, "items": items, "page": 1})
         await _show_detail(ctx, int(parts[1].strip()), 1)
         return
     await _show_list(ctx, topic, extra)
