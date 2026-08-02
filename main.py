@@ -50,9 +50,9 @@ def _fetch(url: str, ua: str) -> str:
 
 
 def _parse_list(html: str, limit: int = MAX_ITEMS) -> List[Dict]:
-    """解析搜索：标题+链接+时间，过滤超期旧文"""
+    """解析搜索：标题+链接+时间；优先过滤旧文，若过滤后为空则全部返回（保证有内容）"""
     now = time.time()
-    items = []
+    all_items = []
     for m in re.finditer(r'<div class="txt-box">(.*?)</li>', html, re.S):
         seg = m.group(1)
         title_m = re.search(r'<a[^>]*uigs="article_title_\d+"[^>]*>(.*?)</a>', seg, re.S)
@@ -62,22 +62,27 @@ def _parse_list(html: str, limit: int = MAX_ITEMS) -> List[Dict]:
         if not title_m:
             continue
         ts = int(ts_m.group(1)) if ts_m else 0
-        if ts and (now - ts) > MAX_AGE:
-            continue  # 过滤旧文保证时效
+        summary_m = re.search(r'class="txt-info"[^>]*>(.*?)</p>', seg, re.S)
         item = {
             "title": _strip(title_m.group(1)),
             "href": href_m.group(1) if href_m else "",
+            "summary": _strip(summary_m.group(1)) if summary_m else "",
             "account": acct_m.group(1).strip() if acct_m else "",
             "time": time.strftime("%m-%d %H:%M", time.localtime(ts)) if ts else "",
             "ts": ts,
         }
         if item["title"] and item["href"]:
-            items.append(item)
-        if len(items) >= limit:
+            all_items.append(item)
+        if len(all_items) >= limit:
             break
-    # 按时间倒序
-    items.sort(key=lambda x: x["ts"], reverse=True)
-    return items
+    if not all_items:
+        return []
+    fresh = [i for i in all_items if i["ts"] and (now - i["ts"]) <= MAX_AGE]
+    if not fresh:
+        # 无新内容：全部显示（保证有内容，带时间标注）
+        fresh = all_items
+    fresh.sort(key=lambda x: x["ts"], reverse=True)
+    return fresh[:limit]
 
 
 async def _get_list(query: str) -> Optional[List[Dict]]:
@@ -117,21 +122,36 @@ async def _get_detail(href: str) -> Optional[str]:
             continue
     if text:
         _detail_cache[href] = (now, text)
-    return text
+    return text  # 失败时返回 None，调用方用摘要降级
 
 
 def _fetch_detail(href: str, ua: str) -> Optional[str]:
-    """同步抓正文：跟随中间页 JS 拼接出 mp.weixin.qq.com 地址"""
+    """同步抓正文：先建立搜狗会话（cookie），再跟随中间页 JS 拼接 mp.weixin.qq.com 地址"""
     cj = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+    headers = {
+        "User-Agent": ua,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
+    # 1. 先访问搜索页建立会话 cookie（否则 link 跳转被反爬拦截）
+    try:
+        opener.open(urllib.request.Request(SEARCH_URL.format(query=urllib.parse.quote("热门")), headers=headers), timeout=TIMEOUT).read()
+    except Exception:
+        pass
+    # 2. 访问中间页
     link = "https://weixin.sogou.com" + href.replace("&amp;", "&")
-    r = opener.open(urllib.request.Request(link, headers={"User-Agent": ua}), timeout=TIMEOUT)
+    h2 = dict(headers)
+    h2["Referer"] = SEARCH_URL.format(query=urllib.parse.quote("热门"))
+    r = opener.open(urllib.request.Request(link, headers=h2), timeout=TIMEOUT)
     mid = r.read().decode("utf-8", errors="replace")
     parts = re.findall(r"url\s*\+?=\s*'([^']*)'", mid)
     final = "".join(parts)
     if not final.startswith("http"):
         return None
-    r2 = opener.open(urllib.request.Request(final, headers={"User-Agent": ua}), timeout=TIMEOUT)
+    # 3. 访问正文页
+    h3 = dict(headers)
+    h3["Referer"] = link
+    r2 = opener.open(urllib.request.Request(final, headers=h3), timeout=TIMEOUT)
     body = r2.read().decode("utf-8", errors="replace")
     content = re.search(r'<div[^>]*id="js_content"[^>]*>(.*?)</div>\s*<script', body, re.S)
     if not content:
@@ -156,7 +176,8 @@ async def _show_list(ctx: PluginContext, topic: str, extra: str = ""):
     lines = [title, "━━━━━━━━━━━━"]
     for i, it in enumerate(items, 1):
         t = it['title'] if len(it['title']) <= 30 else it['title'][:30] + '…'
-        lines.append(f"{i}. {t}")
+        tm = it.get('time', '')
+        lines.append(f"{i}. {t}  [{tm}]")
     lines.append("━━━━━━━━━━━━")
     lines.append("💡 回复序号看正文，如 1")
     await ctx.reply("\n".join(lines))
@@ -176,7 +197,7 @@ async def _show_detail(ctx: PluginContext, idx: int, page: int):
     it = items[idx - 1]
     text = await _get_detail(it["href"])
     if not text:
-        await ctx.reply("📄 " + it["title"] + "\n（正文获取失败，可能是文章已删除）")
+        await ctx.reply(f"📄 {it['title']}\n⚠️ 正文获取失败，请稍后再试（回复 1 重试）")
         return
     total = max(1, (len(text) + PAGE_SIZE - 1) // PAGE_SIZE)
     page = min(max(page, 1), total)
