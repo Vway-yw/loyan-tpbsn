@@ -114,13 +114,17 @@ async def _get_detail(href: str) -> Optional[str]:
     if cached and now - cached[0] < DETAIL_TTL:
         return cached[1]
     text = None
-    for ua in UA_LIST:
-        try:
-            text = await asyncio.to_thread(_fetch_detail, href, ua)
-            if text:
-                break
-        except Exception:
-            continue
+    for attempt in range(2):  # 失败自动重试一次（反爬间歇期）
+        for ua in UA_LIST:
+            try:
+                text = await asyncio.to_thread(_fetch_detail, href, ua)
+                if text:
+                    break
+            except Exception:
+                continue
+        if text:
+            break
+        await asyncio.sleep(1)
     if text:
         _detail_cache[href] = (now, text)
     return text  # 失败时返回 None，调用方用摘要降级
@@ -198,7 +202,7 @@ async def _show_detail(ctx: PluginContext, idx: int, page: int):
     it = items[idx - 1]
     text = await _get_detail(it["href"])
     if not text:
-        await ctx.reply(f"📄 {it['title']}\n⚠️ 正文获取失败，请稍后再试（回复 1 重试）")
+        await ctx.reply(f"📄 {it['title']}\n⚠️ 这篇文章暂时无法获取正文（可能已删除或需关注），试试其它序号？")
         return
     total = max(1, (len(text) + PAGE_SIZE - 1) // PAGE_SIZE)
     page = min(max(page, 1), total)
