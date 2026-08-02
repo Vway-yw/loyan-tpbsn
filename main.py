@@ -143,8 +143,13 @@ def _fetch_detail(href: str, ua: str) -> Optional[str]:
         opener.open(urllib.request.Request(SEARCH_URL.format(query=urllib.parse.quote("热门")), headers=headers), timeout=TIMEOUT).read()
     except Exception:
         pass
-    # 2. 访问中间页
-    link = "https://weixin.sogou.com" + href.replace("&amp;", "&")
+    # 2. 访问中间页（href 内 query 含中文/空格需编码）
+    raw_link = href.replace("&amp;", "&")
+    if "?" in raw_link:
+        base, _, query_part = raw_link.partition("?")
+        link = "https://weixin.sogou.com" + base + "?" + urllib.parse.quote(query_part, safe="=&%")
+    else:
+        link = "https://weixin.sogou.com" + raw_link
     h2 = dict(headers)
     h2["Referer"] = SEARCH_URL.format(query=urllib.parse.quote("热门"))
     r = opener.open(urllib.request.Request(link, headers=h2), timeout=TIMEOUT)
