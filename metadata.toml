@@ -1,0 +1,28 @@
+[plugin]
+name        = "逃跑吧少年"
+version     = "1.0.0"
+author      = "Vway-yw"
+description = "逃跑吧少年热点/爆料/攻略/通用兑换码查询，列表+序号看正文"
+priority    = 50
+icon        = "https://avatars.githubusercontent.com/u/307078813?v=4"
+dependencies = []
+category    = "Entertainment"
+tags        = ["逃跑吧少年", "热点", "爆料", "攻略", "兑换码", "游戏"]
+repo        = "Vway-yw/loyan-tpbsn"
+docs_url    = "https://github.com/Vway-yw/loyan-tpbsn"
+min_framework = "0.1.0"
+
+[handler]
+entry       = "handle_tpbsn"
+
+[trigger]
+commands       = ["/逃跑热点", "/逃跑吧少年热点", "/逃跑资讯", "/逃跑爆料", "/逃跑更新", "/逃跑吧少年爆料", "/逃跑攻略", "/逃跑吧少年攻略", "/逃跑兑换码", "/逃跑码", "/逃跑吧少年兑换码", "/兑换码"]
+chat_type      = ["private", "group"]
+permission     = "all"
+is_at_required = false
+
+[trigger.command_descriptions]
+"/逃跑热点"     = "🔥 逃跑吧少年最新热点（输序号看正文）"
+"/逃跑爆料"     = "⚡ 版本更新/新活动爆料（输序号看正文）"
+"/逃跑攻略"     = "📖 攻略（输序号看正文，可加关键词）"
+"/逃跑兑换码"   = "🎁 最新通用兑换码"
