@@ -9,7 +9,7 @@ dependencies = []
 
 description = "逃跑吧少年热点/爆料/攻略/通用兑换码查询，列表+序号看正文"
 category    = "Entertainment"
-tags        = [['逃跑吧少年', '热点', '爆料', '攻略', '兑换码', '游戏']]
+tags        = ['逃跑吧少年', '热点', '爆料', '攻略', '兑换码', '游戏']
 repo        = "Vway-yw/loyan-tpbsn"
 docs_url    = "https://github.com/Vway-yw/loyan-tpbsn"
 min_framework = "0.1.0"
