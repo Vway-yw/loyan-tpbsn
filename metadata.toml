@@ -1,19 +1,16 @@
 [plugin]
-name        = "逃跑吧少年"
-version     = "1.0.0"
-author      = "Vway-yw"
-
-priority    = 50
-icon        = "https://avatars.githubusercontent.com/u/307078813?v=4"
-dependencies = []
-
-description = "逃跑吧少年热点/爆料/攻略/通用兑换码查询，列表+序号看正文"
-category    = "Entertainment"
-tags        = ['逃跑吧少年', '热点', '爆料', '攻略', '兑换码', '游戏']
-repo        = "Vway-yw/loyan-plugins"
-docs_url    = "https://github.com/Vway-yw/loyan-plugins"
-min_framework = "0.1.0"
-
+name           = "逃跑吧少年"
+version        = "1.0.0"
+author         = "Vway-yw"
+description    = "逃跑吧少年热点/爆料/攻略/通用兑换码查询，列表+序号看正文"
+priority       = 50
+icon           = "https://avatars.githubusercontent.com/u/307078813?v=4"
+dependencies   = []
+category       = "Entertainment"
+tags           = ['逃跑吧少年', '热点', '爆料', '攻略', '兑换码', '游戏']
+repo           = "Vway-yw/loyan-plugins"
+docs_url       = "https://github.com/Vway-yw/loyan-plugins"
+min_framework  = "0.1.0"
 [handler]
 entry       = "handle_tpbsn"
 
